@@ -1,0 +1,75 @@
+@inject DataGenerator DataGeneratorService // Injects the DataGenerator service for data computation
+@inject AppDbContext DbContext // Injects the AppDbContext for database access
+@inject FileExportService FileExportService // Injects the FileExportService for file exports
+
+<!-- Button to start the computation process. Disabled while computing -->
+<button @onclick="StartComputation" disabled="@isComputing">Compute Data</button>
+
+<!-- Button to save data to the database. Enabled only after computation is complete -->
+<button @onclick="SaveData" disabled="@(!isSaveEnabled)">Save Data</button>
+
+<!-- Buttons to download data as XML or Binary. Enabled only after data is saved -->
+<button @onclick="DownloadAsXml" disabled="@(!isDownloadEnabled)">Download as XML</button>
+<button @onclick="DownloadAsBinary" disabled="@(!isDownloadEnabled)">Download as Binary</button>
+
+@code {
+    private bool isComputing = false; // Indicates if computation is in progress
+    private bool isSaveEnabled = false; // Indicates if the Save button should be enabled
+    private bool isDownloadEnabled = false; // Indicates if the download buttons should be enabled
+
+    // Method to start the computation process asynchronously
+    private async Task StartComputation()
+    {
+        isComputing = true; // Disable the Compute button
+
+        // Start computation logic asynchronously
+        await DataGeneratorService.StartComputation(); // Assuming StartComputation is an async method
+
+        isComputing = false; // Re-enable UI elements after computation is complete
+        isSaveEnabled = true; // Enable the Save button once computation finishes
+    }
+
+    // Method to save computed data to the database asynchronously
+    private async Task SaveData()
+    {
+        // Retrieve the list of computed numbers from the DataGenerator service
+        var data = DataGeneratorService.GetComputedList();
+
+        foreach (var num in data)
+        {
+            // Add each number to the database with prime status
+            DbContext.Numbers.Add(new Number { Value = num, IsPrime = IsPrime(num) });
+        }
+
+        // Save all changes to the database asynchronously
+        await DbContext.SaveChangesAsync();
+
+        isSaveEnabled = false; // Disable the Save button after data is saved
+        isDownloadEnabled = true; // Enable the download buttons
+    }
+
+    // Method to download data as XML asynchronously
+    private async Task DownloadAsXml()
+    {
+        var data = DataGeneratorService.GetComputedList();
+        await FileExportService.ExportToXml(data); // Assuming ExportToXml is an async method
+    }
+
+    // Method to download data as a binary file asynchronously
+    private async Task DownloadAsBinary()
+    {
+        var data = DataGeneratorService.GetComputedList();
+        await FileExportService.ExportToBinary(data); // Assuming ExportToBinary is an async method
+    }
+
+    // Helper method to check if a number is prime
+    private bool IsPrime(int number)
+    {
+        if (number <= 1) return false; // 1 and numbers less than 1 are not prime
+        for (int i = 2; i <= Math.Sqrt(number); i++) // Check divisibility up to sqrt(number)
+        {
+            if (number % i == 0) return false; // If divisible, it's not prime
+        }
+        return true; // If no divisors are found, it's prime
+    }
+}
